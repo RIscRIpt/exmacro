@@ -1,7 +1,21 @@
+include 'PRINT.INC'
+
+macro display_line token* {
+    match pattern, token \{
+        irps value, pattern \\{
+            if \\`value eq \\value
+                display 39, \\`value, 39
+            else
+                display \\`value\\#" "
+            end if
+        \\}
+    \}
+}
+
 macro align a, v {
     local b
     if a and (a - 1) ;Check if a is power of two
-        display 'align value is not power of two!', 13, 10
+        display 'align value ', d=v, ' is not power of two!', 13, 10
         err
     end if
     b = ((-$) and (a - 1))
@@ -14,6 +28,19 @@ macro align a, v {
     end if
 }
 
+macro assert_align a {
+    local b
+    if a and (a - 1) ;Check if a is power of two
+        display 'align value ', d=v, ' is not power of two!', 13, 10
+        err
+    end if
+    b = ((-$) and (a - 1))
+    if b
+        display ' : assertion of align by ', d=a, ' failed! (', h=$, ')', 13, 10
+        err
+    end if
+}
+
 macro diu x& {
     local matched
     matched = 0
@@ -22,11 +49,11 @@ macro diu x& {
         if used l
             l t
         else
-            display 'Unused variable `', \`l, 13, 10
+            ;display 'Unused variable `', \`l, 13, 10
         end if
     \}
     if ~ matched
-        display 'Unsupported usage of `dil`', 13, 10
+        ;display 'Unsupported usage of `dil`', 13, 10
         err
     end if
 }
@@ -39,8 +66,10 @@ macro diub l {
     if used l
         l:
     macro endb \{
-        purge endb
+        else
+            ;display 'Unused block `', \`l, 13, 10
         end if
+        purge endb
     \}
 }
 
@@ -59,63 +88,56 @@ macro class name {
 skip_to fix rb .-$+
 endc fix } class_end
 
-macro define_if_used name, type, [data] {
+macro array type, name, [data] {
     common
-    if type eq db
-        label name byte
-    else if type eq dw
-        label name word
-    else if type eq dd
-        label name dword
-    else if type eq df
-        label name fword
-    else if type eq dq
-        label name qword
-    else if type eq dt
-        label name tword
-    else
-        label name
-    end if
+    label name
     if used name
         forward
             type data
         common
+        sizeof.#name = $ - name
+    else
+        ;display 'Unused array of ', `type, ' `', `name, '`', 13, 10
     end if
 }
 
-macro bytes name, [data] {
+macro sized_array size_type, type, name, [data] {
     common
     label name
     if used name
+        virtual at 0
+            forward
+                type data
+            common
+            sizeof.#name = $
+        end virtual
+        size_type sizeof.#name
         forward
-            db data
+            type data
         common
+    else
+        ;display 'Unused array of ', `type, ' `', `name, '`', 13, 10
     end if
-    sizeof.#name = $ - name
 }
 
-macro string name, [data] {
-    common
-    label name
-    if used name
-        forward
-            db data
-        common
-    end if
-    db 0
-    sizeof.#name = $ - name
+macro bytes name, data& {
+    array db, name, data
 }
 
-macro wstring name, [data] {
-    common
-    label name
-    if used name
-        forward
-            du data
-        common
-    end if
-    du 0
-    sizeof.#name = $ - name
+macro string name, data& {
+    array db, name, data, 0
+}
+
+macro pstring name, data& {
+    sized_array db, db, name, data
+}
+
+macro wstring name, data& {
+    array du, name, data, 0
+}
+
+macro pwstring name, data& {
+    sized_array dw, du, name, data
 }
 
 macro mov_dbl_const dst, val {
@@ -139,3 +161,88 @@ macro jmpcall dest, [arg] { ; push dword arguments and jump to destination
     jmp dest
 }
 
+
+macro adwrap i, a {
+    if __adwrap_init eq i & __adwrap_align = a
+    macro endaw \{ end if \}
+}
+
+macro adinclude filename, init, [nalign] {
+    forward
+        __adwrap_init equ init
+        __adwrap_align = nalign
+        align nalign, ?
+        include filename
+        assert_align nalign
+        restore __adwrap_init
+}
+
+
+macro make_list_definer name, pre_defines, pre_define, post_define, post_defines {
+    local list, define_list_item
+    list equ
+    macro name item& \{
+        local _
+        macro _ \\{ item \\}
+        match x, list \\{ list equ list,_ \\}
+        match  , list \\{ list equ _ \\}
+    \}
+    macro name#\_ \{
+        match x, list \\{ list equ list,\_ \\}
+        match  , list \\{ list equ \_ \\}
+    \}
+    macro define_#name#s \{ match _, list \\{ define_list_item _ \\} \}
+    macro define_list_item [item] \{
+        common
+            if ~ pre_defines eq
+                pre_defines
+            end if
+        forward
+            if ~ pre_define eq
+                pre_define item
+            end if
+            item
+            if ~ post_define eq
+                post_define item
+            end if
+            purge item
+        common
+            if ~ post_defines eq
+                post_defines
+            end if
+    \}
+}
+
+;wrap_ fix macro _ {
+;_wrap fix }
+;
+;macro make_adata_definer name, _align {
+;    macro __pre_define_#name#s \{ align _align, ? \}
+;    macro __post_define_#name item \{
+;        assert_align _align, item
+;    \}
+;    make_list_definer name, __pre_define_#name#s,, __post_define_#name
+;}
+;
+;macro define_adata_definers prefix, max_align {
+;    if max_align and (max_align - 1) ;Check if a is power of two
+;        display 'align value ', d=max_align, ' is not power of two!', 13, 10
+;        err
+;    end if
+;    rept max_align cur_align:1 \{
+;        if ~ cur_align and (cur_align - 1)
+;            make_adata_definer prefix\#\cur_align, cur_align
+;        end if
+;    \}
+;}
+;
+;macro ninclude filename {
+;    local ..
+;    ..:
+;        include filename
+;    if $ - .. > 0
+;        display 'ninclude: "', filename, '" tried to define some data!', 13, 10
+;        ;err
+;    end if
+;}
+;
