@@ -88,6 +88,38 @@ macro class name {
 skip_to fix rb .-$+
 endc fix } class_end
 
+; Refactored macros `interface` of Abyx : http://board.flatassembler.net/topic.php?p=107946
+macro vtable name_parent, [methods] {
+    common
+        local has_parent
+        has_parent equ
+        match name:parent, name_parent \{
+            _vtable name, parent, methods
+            has_parent equ 1
+        \}
+        match , has_parent \{
+            _vtable name_parent,, methods
+            restore has_parent
+        \}
+        restore has_parent
+}
+
+macro _vtable name, parent, [methods] {
+    common
+        macro _#name#_vtable base \{
+            match any, parent \\{
+                _#parent#_vtable base
+            \\}
+    forward
+            base\#.#methods dd ?
+    common
+        \}
+
+        virtual at 0
+            _#name#_vtable name
+        end virtual
+}
+
 macro array type, name, [data] {
     common
     label name
