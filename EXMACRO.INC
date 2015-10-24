@@ -1,5 +1,10 @@
 include 'PRINT.INC'
 
+virtual at 0
+    mov eax, [0]
+    Bit = 1 shl $
+end virtual
+
 macro display_line token* {
     match pattern, token \{
         irps value, pattern \\{
@@ -37,6 +42,28 @@ macro assert_align a {
     b = ((-$) and (a - 1))
     if b
         display ' : assertion of align by ', d=a, ' failed! (', h=$, ')', 13, 10
+        err
+    end if
+}
+
+macro errorCheck cond=e, val=0, reg=eax, handler=errorHandler{
+    if val
+        cmp reg, val
+        ;je handler
+    else
+        test reg, reg
+        ;jz handler
+    end if
+    if cond eq e
+        jz handler ;jz == je (Checks ZERO flag)
+    else if cond eq ne
+        jnz handler ;jnz == jne (Checks ZERO flag)
+    else if cond eq s
+        js handler
+    else if cond eq ns
+        jns handler
+    else
+        display 'errorCheck: invalid cond argument!', 13, 10
         err
     end if
 }
