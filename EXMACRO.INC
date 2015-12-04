@@ -23,7 +23,7 @@ macro align a, v {
         display 'align value ', d=v, ' is not power of two!', 13, 10
         err
     end if
-    b = ((-$) and (a - 1))
+    b = ((-(rva $)) and (a - 1))
     if b
         if ~ v eq
             db b dup v
