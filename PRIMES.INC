@@ -42,7 +42,6 @@ macro generate_primes n {
                     break
                 end if
                 dq p
-                display d=p, 13, 10
             end if
         end repeat
     end repeat
