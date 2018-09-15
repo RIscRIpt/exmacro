@@ -1,4 +1,4 @@
-include 'PRINT.INC'
+include 'print.inc'
 
 virtual at 0
     mov eax, [0]
